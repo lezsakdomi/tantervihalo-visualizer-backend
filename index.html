@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="style.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-polyfill/6.26.0/polyfill.js"></script>
+    <script src="https://unpkg.com/exceljs@4.3.0/dist/exceljs.js"></script>
+    <script src="https://unpkg.com/viz.js@2.1.2/viz.js"></script>
+    <script src="https://unpkg.com/viz.js@2.1.2/full.render.js"></script>
+    <script src="api.js"></script>
+    <script src="script.js"></script>
+</head>
+<body>
+    <details id="fileListDetails" open>
+        <summary>1. Select file</summary>
+        <button id="loadButton">Load</button>
+        <ul id="ul"></ul>
+    </details>
+    <details id="fileContentDetails">
+        <summary>2. Refine data</summary>
+        <ul id="fileContentUl"></ul>
+        <div id="fileContentDiv"></div>
+    </details>
+    <details id="subjectListDetails">
+        <summary>3. Preview results</summary>
+        <div id="subjectListDiv"></div>
+    </details>
+</body>
+</html>

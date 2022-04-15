@@ -1,0 +1,7 @@
+a[data-extension='xlsx'] {
+    background: green;
+}
+
+a[data-extension='pdf'] {
+    background: yellow;
+}
