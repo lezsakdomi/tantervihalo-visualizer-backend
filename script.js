@@ -152,6 +152,8 @@ async function loadFileList(outerUl) {
 										const element = await viz.renderSVGElement(graph);
 										document.getElementById('subjectListDiv')
 											.replaceChildren(element);
+										document.getElementById('fileContentDetails')
+											.open = false;
 									} catch (e) {
 										viz = new Viz();
 										document.getElementById('subjectListDiv').innerText = e;
