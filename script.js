@@ -110,7 +110,7 @@ async function loadFileList(outerUl) {
 												console.debug(`Skipping sum: workbook ${wb.name} worksheet ${ws.name} row ${i}`);
 											} else {
 												const cellArray = [];
-												for (let j = 1; j <= (/* row.actualCellCount */ module.initialized ? module[MODULE_HEADERS].length : row.actualCellCount); j++) {
+												for (let j = 1; j <= (/* row.actualCellCount */ module.initialized ? module.headers.length : row.actualCellCount); j++) {
 													cellArray.push(row.getCell(j).text);
 												}
 												module.push(cellArray);

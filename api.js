@@ -71,8 +71,12 @@ class CurriculumModule {
 		}
 	}
 
+	get headers() {
+		return [...this[MODULE_HEADERS]];
+	}
+
 	set headers(headers) {
-		this[MODULE_HEADERS] = headers;
+		this[MODULE_HEADERS] = [...headers];
 		this[MODULE_ROWS] = [];
 	}
 
