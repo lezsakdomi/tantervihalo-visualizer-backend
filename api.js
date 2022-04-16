@@ -1,5 +1,86 @@
 import "https://unpkg.com/exceljs@4.3.0/dist/exceljs.js";
 
+const TANTERVIHALO_LOADER_WORKBOOK = Symbol('workbook');
+const TANTERVIHALO_LOADER_LOADED_PROMISE = Symbol('loadedPromise');
+const TANTERVIHALO_LOADER_LOAD = Symbol('load');
+const TANTERVIHALO_LOADER_TANTERVIHALOS = Symbol('tantervihalos')
+export class TantervihaloLoader extends EventTarget {
+	constructor(xlsxData) {
+		super()
+
+		this[TANTERVIHALO_LOADER_TANTERVIHALOS] = [];
+		this[TANTERVIHALO_LOADER_WORKBOOK] = new ExcelJS.Workbook;
+		this[TANTERVIHALO_LOADER_LOADED_PROMISE] = this[TANTERVIHALO_LOADER_LOAD](xlsxData);
+	}
+
+	async [TANTERVIHALO_LOADER_LOAD](data) {
+		await this.workbook.xlsx.load(data);
+
+		for (const ws of this.workbook.worksheets) {
+			const tantervihalo = new Tantervihalo({title: ws.getRow(1).getCell(1).text});
+			this[TANTERVIHALO_LOADER_TANTERVIHALOS].push(tantervihalo);
+			const tantervihaloEventTarget = new EventTarget();
+			this.dispatchEvent(new CustomEvent('tantervihaloFound',
+				{detail: {tantervihalo, eventTarget: tantervihaloEventTarget, excelRow: ws.getRow(1)}}));
+
+			let module, moduleEventTarget;
+			for (let i = 2; i <= ws.actualRowCount; i++) {
+				const row = ws.getRow(i);
+				if (row.actualCellCount === 0) {
+					if (module && !module.initialized) {
+						// skipping row
+					} else {
+						module = new CurriculumModule({tantervihalo});
+						moduleEventTarget = new EventTarget();
+						tantervihaloEventTarget.dispatchEvent(new CustomEvent('moduleFound',
+							{detail: {module, eventTarget: moduleEventTarget, excelRow: row}}));
+					}
+				} else if (module === undefined) {
+					this.dispatchEvent(new CustomEvent('unexpectedRow',
+						{detail: {excelRow: row}}));
+				} else {
+					if (row.getCell(1).isMerged) {
+						const title = module.title = row.getCell(1).text;
+						moduleEventTarget.dispatchEvent(new CustomEvent('titleFound',
+							{detail: {title, excelRow: row}}));
+					} else {
+						if (row.getCell(1).style.font.bold) {
+							const headers = [];
+							for (let j = 1; j <= row.actualCellCount; j++) {
+								headers.push(row.getCell(j).text);
+							}
+							module.headers = headers;
+						} else if (row.getCell(1).text === "") {
+							moduleEventTarget.dispatchEvent(new CustomEvent('skippedSumRow',
+								{detail: {excelRow: row}}));
+						} else {
+							const cellArray = [];
+							for (let j = 1; j <= (/* row.actualCellCount */ module.initialized ? module.headers.length : row.actualCellCount); j++) {
+								cellArray.push(row.getCell(j).text);
+							}
+							const subject = module.push(cellArray);
+							moduleEventTarget.dispatchEvent(new CustomEvent('subjectFound',
+								{detail: {subject, excelRow: row}}));
+						}
+					}
+				}
+			}
+		}
+	}
+
+	get workbook() {
+		return this[TANTERVIHALO_LOADER_WORKBOOK];
+	}
+
+	get loadedPromise() {
+		return this[TANTERVIHALO_LOADER_LOADED_PROMISE];
+	}
+
+	get tantervihalos() {
+		return [...this[TANTERVIHALO_LOADER_TANTERVIHALOS]];
+	}
+}
+
 export const AssessmentTypes = {
 	combined: Symbol('COMBINED_GRADE'),
 	combinedPractice: Symbol('COMBINED_PRACTICE_GRADE'),

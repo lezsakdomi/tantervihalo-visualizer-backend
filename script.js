@@ -1,4 +1,4 @@
-import {AssessmentTypes, CurriculumModule, Tantervihalo, Subject} from "./api.js";
+import {AssessmentTypes, CurriculumModule, Tantervihalo, Subject, TantervihaloLoader} from "./api.js";
 
 async function fetchText(url) {
 	const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url), {});
@@ -43,84 +43,65 @@ async function loadFileList(outerUl) {
 						document.getElementById('fileContentDetails').open = true;
 						try {
 							const bytes = await fetchBytes(linkUrl);
-							const wb = new ExcelJS.Workbook;
-							window.wb = wb;
-							await wb.xlsx.load(bytes);
-							for (const ws of wb.worksheets) {
+							const loader = new TantervihaloLoader(bytes);
+							window.wb = loader.workbook;
+							loader.addEventListener('unexpectedRow', ({detail: {excelRow: row}}) => {
+								console.warn(`Skipping workbook ${wbName} worksheet ${wsName} row ${rowIndex}`);
+								// todo
+							});
+							loader.addEventListener('skippedSumRow', ({detail: {excelRow: row}}) => {
+								console.debug(`Skipping sum: workbook ${wbName} worksheet ${wsName} row ${rowIndex}`);
+								// todo
+							});
+							loader.addEventListener('tantervihaloFound', ({detail: {tantervihalo, eventTarget: tantervihaloLoadingEvents}}) => {
 								const wsLi = ul.appendChild(document.createElement('li'));
-								const tantervihalo = new Tantervihalo({title: ws.getRow(1).getCell(1).text});
 								wsLi.representedTantervihalo = tantervihalo;
 								wsLi.innerText = tantervihalo.title;
 								const wsUl = wsLi.appendChild(document.createElement('ul'));
-								let module, moduleLi, moduleSpan, moduleDropdown, modulePre;
-								for (let i = 2; i <= ws.actualRowCount; i++) {
-									const row = ws.getRow(i);
-									if (row.actualCellCount === 0) {
-										if (module && !module.initialized) {
-											// skipping row
-										} else {
-											moduleLi = wsUl.appendChild(document.createElement('li'));
-											moduleSpan = moduleLi.appendChild(document.createElement('span'));
-											moduleDropdown = moduleLi.appendChild(document.createElement('select'));
-											modulePre = moduleLi.appendChild(document.createElement('pre'));
-											module = new CurriculumModule({tantervihalo});
-											moduleLi.representedModule = module;
+								tantervihaloLoadingEvents.addEventListener('moduleFound', ({detail: {module, eventTarget: moduleLoadingEvents}}) => {
+									const moduleLi = wsUl.appendChild(document.createElement('li'));
+									const moduleSpan = moduleLi.appendChild(document.createElement('span'));
+									const moduleDropdown = moduleLi.appendChild(document.createElement('select'));
+									const modulePre = moduleLi.appendChild(document.createElement('pre'));
+									moduleLi.representedModule = module;
 
-											moduleDropdown.innerHTML = `
-<option disabled></option>
+									function updateModulePre() {
+										modulePre.innerText = module.ignored ? "" : JSON.stringify(module, null, 2);
+									}
+									moduleLoadingEvents.addEventListener('titleFound', ({detail: {title}}) => {
+										moduleSpan.innerText = title;
+									});
+									moduleLoadingEvents.addEventListener('subjectFound', () => {
+										updateModulePre();
+									});
+
+									moduleDropdown.innerHTML = `
+<option disabled selected></option>
 <option value="compulsory">compulsory</option>
 <option value="elective">elective</option>
 <option value="ignored">ignored</option>`;
-											(function (module, modulePre) {
-													moduleDropdown.addEventListener('input', ({target: {value}}) => {
-														switch (value) {
-															case 'compulsory':
-																module.ignored = false;
-																module.elective = false;
-																break;
+									moduleDropdown.addEventListener('input', ({target: {value}}) => {
+										switch (value) {
+											case 'compulsory':
+												module.ignored = false;
+												module.elective = false;
+												break;
 
-															case 'elective':
-																module.ignored = false;
-																module.elective = true;
-																break;
+											case 'elective':
+												module.ignored = false;
+												module.elective = true;
+												break;
 
-															case 'ignored':
-																module.ignored = true;
-																console.log(module);
-																break;
-														}
-
-														modulePre.innerText = module.ignored ? "" : JSON.stringify(module, null, 2);
-														console.log(value);
-													});
-												}
-											)(module, modulePre);
+											case 'ignored':
+												module.ignored = true;
+												console.log(module);
+												break;
 										}
-									} else if (module === undefined) {
-										console.warn(`Skipping workbook ${wb.name} worksheet ${ws.name} row ${i}`);
-									} else {
-										if (row.getCell(1).isMerged) {
-											moduleSpan.innerText = module.title = row.getCell(1).text;
-										} else {
-											if (row.getCell(1).style.font.bold) {
-												const headers = [];
-												for (let j = 1; j <= row.actualCellCount; j++) {
-													headers.push(row.getCell(j).text);
-												}
-												module.headers = headers;
-											} else if (row.getCell(1).text === "") {
-												console.debug(`Skipping sum: workbook ${wb.name} worksheet ${ws.name} row ${i}`);
-											} else {
-												const cellArray = [];
-												for (let j = 1; j <= (/* row.actualCellCount */ module.initialized ? module.headers.length : row.actualCellCount); j++) {
-													cellArray.push(row.getCell(j).text);
-												}
-												module.push(cellArray);
-											}
-										}
-										modulePre.innerText = module.ignored ? "" : JSON.stringify(module, null, 2);
-									}
-								}
+
+										updateModulePre();
+									});
+								});
+
 								const displayButton = wsLi.insertBefore(document.createElement('button'), wsUl);
 								displayButton.innerText = 'Select';
 								let viz = new Viz();
@@ -162,7 +143,8 @@ async function loadFileList(outerUl) {
 									}
 									document.getElementById('subjectListDetails').scrollIntoView();
 								});
-							}
+							});
+							await loader.loadedPromise;
 							document.getElementById('fileContentDiv').innerHTML = "";
 							document.getElementById('fileListDetails').open = false;
 							document.getElementById('fileContentDetails').scrollIntoView();
