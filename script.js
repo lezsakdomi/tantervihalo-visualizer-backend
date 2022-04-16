@@ -1,4 +1,4 @@
-import {AssessmentTypes, CurriculumModule, CurriculumUnit, Subject} from "./api.js";
+import {AssessmentTypes, CurriculumModule, Tantervihalo, Subject} from "./api.js";
 
 async function fetchText(url) {
 	const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url), {});
@@ -48,9 +48,9 @@ async function loadFileList(outerUl) {
 							await wb.xlsx.load(bytes);
 							for (const ws of wb.worksheets) {
 								const wsLi = ul.appendChild(document.createElement('li'));
-								const unit = new CurriculumUnit({title: ws.getRow(1).getCell(1).text});
-								wsLi.representedUnit = unit;
-								wsLi.innerText = unit.title;
+								const tantervihalo = new Tantervihalo({title: ws.getRow(1).getCell(1).text});
+								wsLi.representedTantervihalo = tantervihalo;
+								wsLi.innerText = tantervihalo.title;
 								const wsUl = wsLi.appendChild(document.createElement('ul'));
 								let module, moduleLi, moduleSpan, moduleDropdown, modulePre;
 								for (let i = 2; i <= ws.actualRowCount; i++) {
@@ -63,7 +63,7 @@ async function loadFileList(outerUl) {
 											moduleSpan = moduleLi.appendChild(document.createElement('span'));
 											moduleDropdown = moduleLi.appendChild(document.createElement('select'));
 											modulePre = moduleLi.appendChild(document.createElement('pre'));
-											module = new CurriculumModule({unit});
+											module = new CurriculumModule({tantervihalo});
 											moduleLi.representedModule = module;
 
 											moduleDropdown.innerHTML = `
@@ -126,9 +126,9 @@ async function loadFileList(outerUl) {
 								let viz = new Viz();
 								displayButton.addEventListener('click', async () => {
 									document.getElementById('subjectListDetails').open = true;
-									let graph = `digraph ${JSON.stringify(unit.title)} {`;
-									graph += `label=${JSON.stringify(unit.title)};`;
-									for (const module of unit.modules) {
+									let graph = `digraph ${JSON.stringify(tantervihalo.title)} {`;
+									graph += `label=${JSON.stringify(tantervihalo.title)};`;
+									for (const module of tantervihalo.modules) {
 										graph += `subgraph ${JSON.stringify("cluster_" + module.title)} {`;
 										graph += `label=${JSON.stringify(module.title)};`;
 										for (const subject of module) {
@@ -140,7 +140,7 @@ async function loadFileList(outerUl) {
 										graph += `}`;
 									}
 									graph += `rankdir=LR;`;
-									for (const subject of unit) {
+									for (const subject of tantervihalo) {
 										for (const req of subject.requirements) {
 											graph += `${JSON.stringify(req.code)}->${JSON.stringify(subject.code)};`;
 										}
@@ -150,7 +150,7 @@ async function loadFileList(outerUl) {
 										document.getElementById('subjectListDiv')
 											.dataset['graph'] = graph;
 										document.getElementById('subjectListDiv')
-											.representedUnit = unit;
+											.representedTantervihalo = tantervihalo;
 										const element = await viz.renderSVGElement(graph);
 										document.getElementById('subjectListDiv')
 											.replaceChildren(element);

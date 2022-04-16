@@ -8,17 +8,17 @@ export const AssessmentTypes = {
 	practice: Symbol('PRACTICE_GRADE'),
 };
 
-const UNIT_MODULES = Symbol('modules');
-export class CurriculumUnit {
-	[UNIT_MODULES];
+const TANTERVIHALO_MODULES = Symbol('modules');
+export class Tantervihalo {
+	[TANTERVIHALO_MODULES];
 
 	constructor({title}) {
 		this.title = title;
-		this[UNIT_MODULES] = [];
+		this[TANTERVIHALO_MODULES] = [];
 	}
 
 	push(...args) {
-		this[UNIT_MODULES].push(...args);
+		this[TANTERVIHALO_MODULES].push(...args);
 	}
 
 	*[Symbol.iterator]() {
@@ -30,7 +30,7 @@ export class CurriculumUnit {
 	}
 
 	get modules() {
-		return this[UNIT_MODULES].filter(module => !module.ignored);
+		return this[TANTERVIHALO_MODULES].filter(module => !module.ignored);
 	}
 
 	findSubject({code}) {
@@ -42,7 +42,7 @@ export class CurriculumUnit {
 	}
 }
 
-const MODULE_UNIT = Symbol('unit');
+const MODULE_TANTERVIHALO = Symbol('tantervihalo');
 const MODULE_HINT = Symbol('hint');
 const MODULE_HEADERS = Symbol('headers');
 const MODULE_TITLE = Symbol('title');
@@ -50,22 +50,22 @@ const MODULE_ROWS = Symbol('rows');
 const MODULE_ELECTIVE = Symbol('elective');
 const MODULE_IGNORED = Symbol('ignored');
 export class CurriculumModule {
-	[MODULE_UNIT];
+	[MODULE_TANTERVIHALO];
 	[MODULE_HEADERS];
 	[MODULE_TITLE];
 	[MODULE_ROWS];
 	[MODULE_ELECTIVE];
 	[MODULE_IGNORED];
 
-	constructor({unit}) {
-		unit[UNIT_MODULES].push(this);
-		this[MODULE_UNIT] = unit;
+	constructor({tantervihalo}) {
+		tantervihalo[TANTERVIHALO_MODULES].push(this);
+		this[MODULE_TANTERVIHALO] = tantervihalo;
 	}
 
 	get [MODULE_HINT]() {
-		if (this[MODULE_UNIT] && this[MODULE_UNIT][UNIT_MODULES][0] !== this) {
+		if (this[MODULE_TANTERVIHALO] && this[MODULE_TANTERVIHALO][TANTERVIHALO_MODULES][0] !== this) {
 			let last;
-			for (const curr of this[MODULE_UNIT][UNIT_MODULES]) {
+			for (const curr of this[MODULE_TANTERVIHALO][TANTERVIHALO_MODULES]) {
 				if (curr === this) break;
 				last = curr;
 			}
@@ -199,7 +199,7 @@ export class Subject {
 	}
 
 	get requirements() {
-		return this[SUBJECT_REQUIREMENTS].map(code => this[SUBJECT_MODULE][MODULE_UNIT].findSubject({code}));
+		return this[SUBJECT_REQUIREMENTS].map(code => this[SUBJECT_MODULE][MODULE_TANTERVIHALO].findSubject({code}));
 	}
 
 	toJSON() {
