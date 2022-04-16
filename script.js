@@ -1,3 +1,5 @@
+import {AssessmentTypes, CurriculumModule, CurriculumUnit, Subject} from "./api.js";
+
 async function fetchText(url) {
 	const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url), {});
 	return res.text();

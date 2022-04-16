@@ -1,4 +1,6 @@
-const AssessmentTypes = {
+import "https://unpkg.com/exceljs@4.3.0/dist/exceljs.js";
+
+export const AssessmentTypes = {
 	combined: Symbol('COMBINED_GRADE'),
 	combinedPractice: Symbol('COMBINED_PRACTICE_GRADE'),
 	combinedContinuous: Symbol('COMBINED_GRADE_WITH_CONTINOUS_ASSESSMENT'),
@@ -7,7 +9,7 @@ const AssessmentTypes = {
 };
 
 const UNIT_MODULES = Symbol('modules');
-class CurriculumUnit {
+export class CurriculumUnit {
 	[UNIT_MODULES];
 
 	constructor({title}) {
@@ -47,7 +49,7 @@ const MODULE_TITLE = Symbol('title');
 const MODULE_ROWS = Symbol('rows');
 const MODULE_ELECTIVE = Symbol('elective');
 const MODULE_IGNORED = Symbol('ignored');
-class CurriculumModule {
+export class CurriculumModule {
 	[MODULE_UNIT];
 	[MODULE_HEADERS];
 	[MODULE_TITLE];
@@ -175,7 +177,7 @@ class CurriculumModule {
 
 const SUBJECT_REQUIREMENTS = Symbol('requirements');
 const SUBJECT_MODULE = Symbol('module');
-class Subject {
+export class Subject {
 	constructor({module, code, name, requirements: [...requirements], credits: {lecture, practice, labor, consultation, total: totalCredits}, assessmentType, recommendedSemester}) {
 		this[SUBJECT_MODULE] = module;
 		this.code = code;
