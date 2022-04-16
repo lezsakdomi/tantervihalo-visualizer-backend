@@ -3,7 +3,7 @@ import "https://unpkg.com/exceljs@4.3.0/dist/exceljs.js";
 export const AssessmentTypes = {
 	combined: Symbol('COMBINED_GRADE'),
 	combinedPractice: Symbol('COMBINED_PRACTICE_GRADE'),
-	combinedContinuous: Symbol('COMBINED_GRADE_WITH_CONTINOUS_ASSESSMENT'),
+	combinedContinuous: Symbol('COMBINED_GRADE_WITH_CONTINUOUS_ASSESSMENT'),
 	exam: Symbol('EXAM_GRADE'),
 	practice: Symbol('PRACTICE_GRADE'),
 };
