@@ -1,12 +1,12 @@
 import {AssessmentTypes, CurriculumModule, Tantervihalo, Subject, TantervihaloLoader} from "./api.js";
 
 async function fetchText(url) {
-	const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url), {});
+	const res = await fetch("https://tantervihalo-visualizer-proxy.herokuapp.com/" + encodeURI(url), {});
 	return res.text();
 }
 
 async function fetchBytes(url) {
-	const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url), {});
+	const res = await fetch("https://tantervihalo-visualizer-proxy.herokuapp.com/" + encodeURI(url), {});
 	const blob = await res.blob();
 	return blob.arrayBuffer();
 }
