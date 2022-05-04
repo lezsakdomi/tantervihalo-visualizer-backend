@@ -20,12 +20,21 @@ async function fetchBytes(url) {
 
 let viz = new Viz();
 async function visualize(div, tantervihalo) {
+	let semesterCount = 0;
+	for (const subject of tantervihalo) {
+		if (subject.recommendedSemester > semesterCount) {
+			semesterCount = subject.recommendedSemester;
+		}
+	}
+
 	let graph = `digraph ${JSON.stringify(tantervihalo.title)} {`;
 	graph += `label=${JSON.stringify(tantervihalo.title)};`;
 
-	for (let semester = 1; semester <= 10; semester++) {
+	for (let semester = 1; semester <= semesterCount; semester++) {
 		graph += `subgraph ${JSON.stringify(`cluster_${semester}`)} {`;
 		graph += `label=${JSON.stringify(`${semester}th semester`)};`;
+
+		graph += `semester_holder_${semester}[style=invis];`;
 
 		for (const subject of tantervihalo) {
 			if (subject.recommendedSemester !== semester) continue;
@@ -38,7 +47,9 @@ async function visualize(div, tantervihalo) {
 
 		graph += `}`;
 	}
+
 	graph += `rankdir=LR;`;
+	graph += `${[...new Array(semesterCount)].map((e, i) => `semester_holder_${i+1}`).join("->")}[style=invis];`;
 
 	for (const subject of tantervihalo) {
 		for (const req of subject.requirements) {
