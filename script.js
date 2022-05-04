@@ -73,11 +73,17 @@ async function loadXlsx(ul, linkUrl) {
 				const moduleLi = wsUl.appendChild(document.createElement('li'));
 				const moduleSpan = moduleLi.appendChild(document.createElement('span'));
 				const moduleDropdown = moduleLi.appendChild(document.createElement('select'));
-				const modulePre = moduleLi.appendChild(document.createElement('pre'));
+				const modulePreDetails = moduleLi.appendChild(document.createElement('details'));
+				const modulePre = modulePreDetails.appendChild(document.createElement('pre'));
 				moduleLi.representedModule = module;
 
 				function updateModulePre() {
 					modulePre.innerText = module.ignored ? "" : JSON.stringify(module, null, 2);
+
+					document.getElementById('subjectListDetails').open = true;
+					visualize(document.getElementById('subjectListDiv'), tantervihalo).catch(e => {
+						modulePre.innerText += "\n\n" + "Failed to visualize: " + e.toString();
+					});
 				}
 				moduleLoadingEvents.addEventListener('titleFound', ({detail: {title}}) => {
 					moduleSpan.innerText = title;
