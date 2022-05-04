@@ -21,6 +21,7 @@ async function fetchBytes(url) {
 let viz = new Viz();
 async function visualize(div, tantervihalo, {
 	minimalSemesters = false,
+	groupByModules = false,
 } = {}) {
 	let semesterCount = 0;
 	for (const subject of tantervihalo) {
@@ -33,21 +34,34 @@ async function visualize(div, tantervihalo, {
 	graph += `label=${JSON.stringify(tantervihalo.title)};`;
 
 	for (let semester = 1; semester <= semesterCount; semester++) {
-		graph += `subgraph ${JSON.stringify(`cluster_${semester}`)} {`;
-		graph += `label=${JSON.stringify(`${semester}th semester`)};`;
+		for (const module of tantervihalo.modules) {
+			const clusterName = groupByModules
+				? `cluster_${module.title}`
+				: `cluster_${semester}`;
+			graph += `subgraph ${JSON.stringify(clusterName)} {`;
 
-		graph += `semester_holder_${semester}[style=invis];`;
+			const clusterTitle = groupByModules
+				? module.title
+				: `${semester}th semester`;
+			graph += `label=${JSON.stringify(clusterTitle)};`;
 
-		for (const subject of tantervihalo) {
-			if (subject.recommendedSemester !== semester) continue;
+			let wasSubject = false;
+			for (const subject of module) {
+				if (subject.recommendedSemester !== semester) continue;
 
-			graph += `${JSON.stringify(subject.code)};`;
-			if (subject.elective) {
-				graph += `${JSON.stringify(subject.code)}[style=dashed];`;
+				wasSubject = true;
+				graph += `${JSON.stringify(subject.code)};`;
+				if (subject.elective) {
+					graph += `${JSON.stringify(subject.code)}[style=dashed];`;
+				}
 			}
-		}
 
-		graph += `}`;
+			if (wasSubject) {
+				graph += `semester_holder_${semester}[style=invis];`;
+			}
+
+			graph += `}`;
+		}
 	}
 
 	graph += `rankdir=LR;`;
@@ -78,6 +92,7 @@ async function visualize(div, tantervihalo, {
 function getVisualizationOptions() {
 	return {
 		minimalSemesters: document.getElementById('minimalSemesters').checked,
+		groupByModules: document.getElementById('groupByModules').checked,
 	}
 }
 
