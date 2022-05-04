@@ -18,6 +18,40 @@ async function fetchBytes(url) {
 	return blob.arrayBuffer();
 }
 
+let viz = new Viz();
+async function visualize(div, tantervihalo) {
+	let graph = `digraph ${JSON.stringify(tantervihalo.title)} {`;
+	graph += `label=${JSON.stringify(tantervihalo.title)};`;
+	for (const module of tantervihalo.modules) {
+		graph += `subgraph ${JSON.stringify("cluster_" + module.title)} {`;
+		graph += `label=${JSON.stringify(module.title)};`;
+		for (const subject of module) {
+			graph += `${JSON.stringify(subject.code)};`;
+			if (subject.elective) {
+				graph += `${JSON.stringify(subject.code)}[style=dashed];`;
+			}
+		}
+		graph += `}`;
+	}
+	graph += `rankdir=LR;`;
+	for (const subject of tantervihalo) {
+		for (const req of subject.requirements) {
+			graph += `${JSON.stringify(req.code)}->${JSON.stringify(subject.code)};`;
+		}
+	}
+	graph += `}`;
+	try {
+		div.dataset['graph'] = graph;
+		div.representedTantervihalo = tantervihalo;
+		const element = await viz.renderSVGElement(graph);
+		div.replaceChildren(element);
+	} catch (e) {
+		viz = new Viz();
+		div.innerText = e;
+		throw e;
+	}
+}
+
 async function loadXlsx(ul, linkUrl) {
 		const bytes = await fetchBytes(linkUrl);
 		const loader = new TantervihaloLoader(bytes);
@@ -81,44 +115,14 @@ async function loadXlsx(ul, linkUrl) {
 
 			const displayButton = wsLi.insertBefore(document.createElement('button'), wsUl);
 			displayButton.innerText = 'Select';
-			let viz = new Viz();
 			displayButton.addEventListener('click', async () => {
 				document.getElementById('subjectListDetails').open = true;
-				let graph = `digraph ${JSON.stringify(tantervihalo.title)} {`;
-				graph += `label=${JSON.stringify(tantervihalo.title)};`;
-				for (const module of tantervihalo.modules) {
-					graph += `subgraph ${JSON.stringify("cluster_" + module.title)} {`;
-					graph += `label=${JSON.stringify(module.title)};`;
-					for (const subject of module) {
-						graph += `${JSON.stringify(subject.code)};`;
-						if (subject.elective) {
-							graph += `${JSON.stringify(subject.code)}[style=dashed];`;
-						}
-					}
-					graph += `}`;
-				}
-				graph += `rankdir=LR;`;
-				for (const subject of tantervihalo) {
-					for (const req of subject.requirements) {
-						graph += `${JSON.stringify(req.code)}->${JSON.stringify(subject.code)};`;
-					}
-				}
-				graph += `}`;
 				try {
-					document.getElementById('subjectListDiv')
-						.dataset['graph'] = graph;
-					document.getElementById('subjectListDiv')
-						.representedTantervihalo = tantervihalo;
-					const element = await viz.renderSVGElement(graph);
-					document.getElementById('subjectListDiv')
-						.replaceChildren(element);
-					document.getElementById('fileContentDetails')
-						.open = false;
-				} catch (e) {
-					viz = new Viz();
-					document.getElementById('subjectListDiv').innerText = e;
+					await visualize(document.getElementById('subjectListDiv'), tantervihalo);
+					document.getElementById('fileContentDetails').open = false;
+				} finally {
+					document.getElementById('subjectListDetails').scrollIntoView();
 				}
-				document.getElementById('subjectListDetails').scrollIntoView();
 			});
 		});
 		await loader.loadedPromise;
