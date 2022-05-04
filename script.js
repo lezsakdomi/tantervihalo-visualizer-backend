@@ -2,7 +2,7 @@ import {AssessmentTypes, CurriculumModule, Tantervihalo, Subject, TantervihaloLo
 
 async function fetchResponse(url) {
 	if (url.match(/^https?:\/\//)) {
-		url = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
+		url = "https://tantervihalo-visualizer-proxy.herokuapp.com/" + encodeURI(url);
 	}
 	return fetch(url, {});
 }
