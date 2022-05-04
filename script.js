@@ -19,7 +19,9 @@ async function fetchBytes(url) {
 }
 
 let viz = new Viz();
-async function visualize(div, tantervihalo) {
+async function visualize(div, tantervihalo, {
+	minimalSemesters = false,
+} = {}) {
 	let semesterCount = 0;
 	for (const subject of tantervihalo) {
 		if (subject.recommendedSemester > semesterCount) {
@@ -49,6 +51,9 @@ async function visualize(div, tantervihalo) {
 	}
 
 	graph += `rankdir=LR;`;
+	if (minimalSemesters) {
+		graph += `newrank=true;`;
+	}
 	graph += `${[...new Array(semesterCount)].map((e, i) => `semester_holder_${i+1}`).join("->")}[style=invis];`;
 
 	for (const subject of tantervihalo) {
@@ -67,6 +72,12 @@ async function visualize(div, tantervihalo) {
 		viz = new Viz();
 		div.innerText = e;
 		throw e;
+	}
+}
+
+function getVisualizationOptions() {
+	return {
+		minimalSemesters: document.getElementById('minimalSemesters').checked,
 	}
 }
 
@@ -99,7 +110,11 @@ async function loadXlsx(ul, linkUrl) {
 					modulePre.innerText = module.ignored ? "" : JSON.stringify(module, null, 2);
 
 					document.getElementById('subjectListDetails').open = true;
-					visualize(document.getElementById('subjectListDiv'), tantervihalo).catch(e => {
+					visualize(
+						document.getElementById('subjectListDiv'),
+						tantervihalo,
+						getVisualizationOptions()
+					).catch(e => {
 						modulePre.innerText += "\n\n" + "Failed to visualize: " + e.toString();
 					});
 				}
@@ -142,7 +157,11 @@ async function loadXlsx(ul, linkUrl) {
 			displayButton.addEventListener('click', async () => {
 				document.getElementById('subjectListDetails').open = true;
 				try {
-					await visualize(document.getElementById('subjectListDiv'), tantervihalo);
+					await visualize(
+						document.getElementById('subjectListDiv'),
+						tantervihalo,
+						getVisualizationOptions()
+					);
 					document.getElementById('fileContentDetails').open = false;
 				} finally {
 					document.getElementById('subjectListDetails').scrollIntoView();
