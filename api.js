@@ -179,7 +179,7 @@ export class CurriculumModule {
 
 	get elective() {
 		if (this[MODULE_ELECTIVE] !== undefined) return this[MODULE_ELECTIVE];
-		return !!this.title.match(/elective/i);
+		return !!this.title.match(/elective|választható/i);
 	}
 
 	set elective(value) {
@@ -203,29 +203,39 @@ export class CurriculumModule {
 		for (const row of this[MODULE_ROWS]) {
 			yield new Subject({
 				module: this,
-				code: row["Code"],
-				name: row["Courses"].match(/(.*)[\s*]*/)[1],
-				requirements: row["Subject requirement"] ? row["Subject requirement"].split(/, ?/) : [],
+				code: (row["Code"] || row["Kód"]),
+				name: (row["Courses"] || row["Tanegység"] || "").match(/(.*)[\s*]*/)[1],
+				requirements: (row["Subject requirement"] ?
+					row["Subject requirement"].split(/, ?/)
+					: (this.headers.includes("Előfeltétel 1") && this.headers.includes("Előfeltétel 1")) ?
+					[
+						...(row["Előfeltétel 1"] ? row["Előfeltétel 1"].split(/, | vagy /) : []),
+						...(row["Előfeltétel 2"] ? row["Előfeltétel 2"].split(/, | vagy /) : []),
+					]
+					: []).map(s => /[\wÀ-ú\d-]+/.exec(s)[0]),
 				credits: {
-					lecture: parseInt(row["Lecture (L)"]),
+					lecture: parseInt(row["Lecture (L)"] || row["Előadás"]),
 					labor: parseInt(row["Labor"]),
-					practice: parseInt(row["Practice (Pr)"]),
-					consultation: parseInt(row["Consultation"]),
-					total: parseInt(row["Credit"]),
+					practice: parseInt(row["Practice (Pr)"] || row["Gyakorlat"]),
+					consultation: parseInt(row["Consultation" || row["Konzultáció"]]),
+					total: parseInt(row["Credit"] || row["Kredit"]),
 				},
 				assessmentType: {
 						"X": {
 							"": AssessmentTypes.combined,
 							"PG": AssessmentTypes.combinedPractice,
+							"Gy": AssessmentTypes.combinedPractice,
 							"CA": AssessmentTypes.combinedContinuous,
-						}[row["Practice Grade (PG)"]],
+						}[row["Practice Grade (PG)" || row["Gyak. jegy"]]],
 						"E": AssessmentTypes.exam,
+						"K": AssessmentTypes.exam,
 						"": {
 							"PG": AssessmentTypes.practice,
+							"Gy": AssessmentTypes.practice,
 							"": undefined,
-						}[row["Practice Grade (PG)"]],
-					}[row["Exam (E)"]],
-				recommendedSemester: parseInt(row["Semester"]),
+						}[row["Practice Grade (PG)" || row["Gyak. jegy"]]],
+					}[row["Exam (E)"] || row["Vizsga"]],
+				recommendedSemester: parseInt(row["Semester"] || row["Ajánlott félév"]),
 			});
 		}
 	}
