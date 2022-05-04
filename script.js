@@ -22,23 +22,30 @@ let viz = new Viz();
 async function visualize(div, tantervihalo) {
 	let graph = `digraph ${JSON.stringify(tantervihalo.title)} {`;
 	graph += `label=${JSON.stringify(tantervihalo.title)};`;
-	for (const module of tantervihalo.modules) {
-		graph += `subgraph ${JSON.stringify("cluster_" + module.title)} {`;
-		graph += `label=${JSON.stringify(module.title)};`;
-		for (const subject of module) {
+
+	for (let semester = 1; semester <= 10; semester++) {
+		graph += `subgraph ${JSON.stringify(`cluster_${semester}`)} {`;
+		graph += `label=${JSON.stringify(`${semester}th semester`)};`;
+
+		for (const subject of tantervihalo) {
+			if (subject.recommendedSemester !== semester) continue;
+
 			graph += `${JSON.stringify(subject.code)};`;
 			if (subject.elective) {
 				graph += `${JSON.stringify(subject.code)}[style=dashed];`;
 			}
 		}
+
 		graph += `}`;
 	}
 	graph += `rankdir=LR;`;
+
 	for (const subject of tantervihalo) {
 		for (const req of subject.requirements) {
 			graph += `${JSON.stringify(req.code)}->${JSON.stringify(subject.code)};`;
 		}
 	}
+
 	graph += `}`;
 	try {
 		div.dataset['graph'] = graph;
