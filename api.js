@@ -148,7 +148,7 @@ export class Tantervihalo {
 	}
 
 	findSubject({code}) {
-		for (const subject of this) {
+		for (const subject of this[TANTERVIHALO_MODULES]) {
 			if (subject.code === code) return subject;
 		}
 
