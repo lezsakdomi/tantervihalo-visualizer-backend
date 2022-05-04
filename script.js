@@ -191,3 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 });
+
+// debugging
+window.loadFileList = loadFileList;
+window.loadXlsx = loadXlsx;
