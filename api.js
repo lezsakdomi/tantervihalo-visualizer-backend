@@ -20,50 +20,83 @@ export class TantervihaloLoader extends EventTarget {
 			const tantervihalo = new Tantervihalo({title: ws.getRow(1).getCell(1).text});
 			this[TANTERVIHALO_LOADER_TANTERVIHALOS].push(tantervihalo);
 			const tantervihaloEventTarget = new EventTarget();
-			this.dispatchEvent(new CustomEvent('tantervihaloFound',
-				{detail: {tantervihalo, eventTarget: tantervihaloEventTarget, excelRow: ws.getRow(1)}}));
+			let tantervihaloResolve, tantervihaloReject;
 
-			let module, moduleEventTarget;
-			for (let i = 2; i <= ws.actualRowCount; i++) {
-				const row = ws.getRow(i);
-				if (row.actualCellCount === 0) {
-					if (module && !module.initialized) {
-						// skipping row
-					} else {
-						module = new CurriculumModule({tantervihalo});
-						moduleEventTarget = new EventTarget();
-						tantervihaloEventTarget.dispatchEvent(new CustomEvent('moduleFound',
-							{detail: {module, eventTarget: moduleEventTarget, excelRow: row}}));
-					}
-				} else if (module === undefined) {
-					this.dispatchEvent(new CustomEvent('unexpectedRow',
-						{detail: {excelRow: row}}));
-				} else {
-					if (row.getCell(1).isMerged) {
-						const title = module.title = row.getCell(1).text;
-						moduleEventTarget.dispatchEvent(new CustomEvent('titleFound',
-							{detail: {title, excelRow: row}}));
-					} else {
-						if (row.getCell(1).style.font.bold) {
-							const headers = [];
-							for (let j = 1; j <= row.actualCellCount; j++) {
-								headers.push(row.getCell(j).text);
-							}
-							module.headers = headers;
-						} else if (row.getCell(1).text === "") {
-							moduleEventTarget.dispatchEvent(new CustomEvent('skippedSumRow',
-								{detail: {excelRow: row}}));
+			this.dispatchEvent(new CustomEvent('tantervihaloFound', {
+				detail: {
+					tantervihalo,
+						eventTarget: tantervihaloEventTarget,
+						excelRow: ws.getRow(1),
+						promise: new Promise((resolve, reject) => {
+							tantervihaloResolve = resolve;
+							tantervihaloReject = reject;
+						}),
+				}
+			}));
+
+			let module, moduleEventTarget, moduleResolve, moduleReject;
+			try {
+				for (let i = 2; i <= ws.actualRowCount; i++) {
+					const row = ws.getRow(i);
+					if (row.actualCellCount === 0) {
+						if (module && !module.initialized) {
+							// skipping row
 						} else {
-							const cellArray = [];
-							for (let j = 1; j <= (/* row.actualCellCount */ module.initialized ? module.headers.length : row.actualCellCount); j++) {
-								cellArray.push(row.getCell(j).text);
+							if (moduleResolve) moduleResolve(module);
+							module = new CurriculumModule({tantervihalo});
+							moduleEventTarget = new EventTarget();
+							tantervihaloEventTarget.dispatchEvent(new CustomEvent('moduleFound', {
+								detail: {
+									module,
+									eventTarget: moduleEventTarget,
+									excelRow: row,
+									promise: new Promise((resolve, reject) => {
+										moduleResolve = resolve;
+										moduleReject = reject;
+									}),
+								}
+							}));
+						}
+					} else if (module === undefined) {
+						this.dispatchEvent(new CustomEvent('unexpectedRow',
+							{detail: {excelRow: row}}));
+					} else {
+						if (row.getCell(1).isMerged) {
+							const title = module.title = row.getCell(1).text;
+							moduleEventTarget.dispatchEvent(new CustomEvent('titleFound',
+								{detail: {title, excelRow: row}}));
+						} else {
+							if (row.getCell(1).style.font.bold) {
+								const headers = [];
+								for (let j = 1; j <= row.actualCellCount; j++) {
+									headers.push(row.getCell(j).text);
+								}
+								module.headers = headers;
+							} else if (row.getCell(1).text === "") {
+								moduleEventTarget.dispatchEvent(new CustomEvent('skippedSumRow',
+									{detail: {excelRow: row}}));
+							} else {
+								const cellArray = [];
+								for (let j = 1; j <= (/* row.actualCellCount */ module.initialized ? module.headers.length : row.actualCellCount); j++) {
+									cellArray.push(row.getCell(j).text);
+								}
+								const subject = module.push(cellArray);
+								moduleEventTarget.dispatchEvent(new CustomEvent('subjectFound', {
+									detail: {
+										subject,
+										excelRow: row,
+										promise: Promise.resolve(subject),
+									}
+								}));
 							}
-							const subject = module.push(cellArray);
-							moduleEventTarget.dispatchEvent(new CustomEvent('subjectFound',
-								{detail: {subject, excelRow: row}}));
 						}
 					}
 				}
+
+				tantervihaloResolve(tantervihalo);
+			} catch (e) {
+				if (moduleReject) moduleReject(e);
+				if (tantervihaloReject) tantervihaloReject(e);
 			}
 		}
 	}
