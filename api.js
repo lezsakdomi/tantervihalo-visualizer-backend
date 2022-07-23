@@ -17,6 +17,8 @@ export class TantervihaloLoader extends EventTarget {
 		await this.workbook.xlsx.load(data);
 
 		for (const ws of this.workbook.worksheets) {
+			if (ws.state !== 'visible') continue;
+
 			const tantervihalo = new Tantervihalo({title: ws.getRow(1).getCell(1).text});
 			this[TANTERVIHALO_LOADER_TANTERVIHALOS].push(tantervihalo);
 			const tantervihaloEventTarget = new EventTarget();
