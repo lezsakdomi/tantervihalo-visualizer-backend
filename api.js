@@ -326,6 +326,10 @@ export class Subject {
 		return this[SUBJECT_REQUIREMENTS].map(code => this[SUBJECT_MODULE][MODULE_TANTERVIHALO].findSubject({code}));
 	}
 
+	toString() {
+		return this.name && `${this.name} (${this.code})` || this.code;
+	}
+
 	toJSON() {
 		return {
 			module: this[SUBJECT_MODULE].title,

@@ -1,0 +1,69 @@
+<meta charset="UTF-8">
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.js"></script>
+
+<script type="text/babel" data-type="module">
+	import {TantervihaloLoader} from './api.js';
+
+	const url = "../assets/PTI 2018 nappali BSc A,B,,C háló 2022 július.xlsx";
+	const bytes = await fetch(url).then(res => res.blob());
+	const loader = new TantervihaloLoader(bytes);
+
+	const tantervihalo = await new Promise(resolve => {
+		loader.addEventListener('tantervihaloFound',
+			({detail: {promise}}) => resolve(promise))
+	})
+
+	window.tantervihalo = tantervihalo;
+	console.log(tantervihalo);
+
+	const fields = [
+		'code',
+		'name',
+		'credits.lecture',
+	    'credits.practice',
+	    'credits.labor',
+	    'credits.consultation',
+	    'credits.total',
+		'assessmentType',
+		'recommendedSemester',
+		'elective',
+		'requirements',
+	].map(s => s.split(/\./g));
+	ReactDOM.createRoot(document.body.appendChild(document.createElement('main'))).render([
+		<h1 key="h1">{tantervihalo.title}</h1>,
+		...tantervihalo.modules.map((module, moduleIndex) => (
+			<table key={`${moduleIndex}:${module.title}`}>
+				<caption>{module.title}</caption>
+				<tbody>
+				<tr>{fields.map(a => <th key={a.join('.')}>{a.join('.')}</th>)}</tr>
+				{[...module].map(subject => (
+					<tr key={subject.code}>{fields.map(a => (
+						<td key={a.join('.')}>{show(a.reduce((o, f) => o[f], subject))}</td>
+                    ))}</tr>
+				))}
+				</tbody>
+			</table>
+		)),
+	]);
+
+	function show(data) {
+		if (data === undefined) return "";
+		else if (Array.isArray(data)) {
+			return data.map(show).join(", ");
+        } else {
+			return data.toString();
+        }
+    }
+</script>
+
+<style>
+    table {
+        margin-top: 1em;
+    }
+
+    table, td, th {
+        border: 1px solid black;
+    }
+</style>
