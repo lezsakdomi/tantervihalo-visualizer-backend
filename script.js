@@ -101,11 +101,11 @@ async function loadXlsx(ul, linkUrl) {
 		const loader = new TantervihaloLoader(bytes);
 		window.wb = loader.workbook;
 		loader.addEventListener('unexpectedRow', ({detail: {excelRow: row}}) => {
-			console.warn(`Skipping workbook ${wbName} worksheet ${wsName} row ${rowIndex}`);
+			console.warn(`Skipping workbook ${"which is loaded"} worksheet ${row.worksheet.name} row ${row.number}`);
 			// todo
 		});
 		loader.addEventListener('skippedSumRow', ({detail: {excelRow: row}}) => {
-			console.debug(`Skipping sum: workbook ${wbName} worksheet ${wsName} row ${rowIndex}`);
+			console.debug(`Skipping sum: workbook ${"which is loaded"} worksheet ${row.worksheet.name} row ${row.number}`);
 			// todo
 		});
 		loader.addEventListener('tantervihaloFound', ({detail: {tantervihalo, eventTarget: tantervihaloLoadingEvents}}) => {
