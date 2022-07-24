@@ -38,7 +38,7 @@ export class TantervihaloLoader extends EventTarget {
 
 			let module, moduleEventTarget, moduleResolve, moduleReject;
 			try {
-				for (let i = 2; i <= ws.actualRowCount; i++) {
+				for (let i = 2; i <= ws.rowCount; i++) {
 					const row = ws.getRow(i);
 					if (row.actualCellCount === 0) {
 						if (module && !module.initialized) {
@@ -68,19 +68,39 @@ export class TantervihaloLoader extends EventTarget {
 							moduleEventTarget.dispatchEvent(new CustomEvent('titleFound',
 								{detail: {title, excelRow: row}}));
 						} else {
-							if (row.getCell(1).style.font.bold) {
+							if (module && !module.initialized && row.getCell(1).style.font.bold) {
 								const headers = [];
 								for (let j = 1; j <= row.actualCellCount; j++) {
-									headers.push(row.getCell(j).text);
+									headers.push(str(row.getCell(j).text));
 								}
 								module.headers = headers;
-							} else if (row.getCell(1).text === "") {
-								moduleEventTarget.dispatchEvent(new CustomEvent('skippedSumRow',
-									{detail: {excelRow: row}}));
+								if (!tantervihalo[TANTERVIHALO_SUMS].initialized) {
+									tantervihalo[TANTERVIHALO_SUMS].headers = headers;
+								}
+							} else if (row.getCell(1).style.font.bold || row.getCell(1).text === "") {
+								if (!module[MODULE_ROWS] || module[MODULE_ROWS].length === 0) {
+									tantervihalo[TANTERVIHALO_MODULES].splice(
+										tantervihalo[TANTERVIHALO_MODULES].findIndex(m => m === module), 1);
+									while (ws.getRow(i + 1).actualCellCount > 0) i++;
+									continue;
+								}
+
+								const cellArray = [];
+								for (let j = 1; j <= (/* row.actualCellCount */ module.initialized ? module.headers.length : row.actualCellCount); j++) {
+									cellArray.push(str(row.getCell(j).text));
+								}
+								const sum = tantervihalo.sums.push(cellArray);
+								tantervihaloEventTarget.dispatchEvent(new CustomEvent('sumRow', {
+									detail: {
+										sum,
+										excelRow: row,
+										promise: Promise.resolve(sum),
+									}
+								}));
 							} else {
 								const cellArray = [];
 								for (let j = 1; j <= (/* row.actualCellCount */ module.initialized ? module.headers.length : row.actualCellCount); j++) {
-									cellArray.push(row.getCell(j).text);
+									cellArray.push(str(row.getCell(j).text));
 								}
 								const subject = module.push(cellArray);
 								moduleEventTarget.dispatchEvent(new CustomEvent('subjectFound', {
@@ -93,6 +113,11 @@ export class TantervihaloLoader extends EventTarget {
 							}
 						}
 					}
+					await new Promise(res => setTimeout(res, 0));
+				}
+
+				if (!tantervihalo.modules[tantervihalo.modules.length - 1].initialized) {
+
 				}
 
 				tantervihaloResolve(tantervihalo);
@@ -116,21 +141,37 @@ export class TantervihaloLoader extends EventTarget {
 	}
 }
 
-export const AssessmentTypes = {
-	combined: Symbol('COMBINED_GRADE'),
-	combinedPractice: Symbol('COMBINED_PRACTICE_GRADE'),
-	combinedContinuous: Symbol('COMBINED_GRADE_WITH_CONTINUOUS_ASSESSMENT'),
-	exam: Symbol('EXAM_GRADE'),
-	practice: Symbol('PRACTICE_GRADE'),
+export const GradeTypes = {
+	exam: Symbol('exam'),
+	practice: Symbol('practice'),
+	continuousPractice: Symbol('practice with continuous assessment'),
+};
+
+export const Topics = {
+	inf: Symbol('Informatics'),
+	mat: Symbol('Mathematics'),
+	szam: Symbol('Computation theory'),
+};
+
+export const Specializations = {
+	F: Symbol('Fejlesztő (C)'),
+	T: Symbol('Tervező (B)'),
+	M: Symbol('Modellező (A)'),
+	get A() { return Specializations.M },
+	get B() { return Specializations.T },
+	get C() { return Specializations.F },
 };
 
 const TANTERVIHALO_MODULES = Symbol('modules');
+const TANTERVIHALO_SUMS = Symbol('summaries');
 export class Tantervihalo {
 	[TANTERVIHALO_MODULES];
+	[TANTERVIHALO_SUMS];
 
 	constructor({title}) {
 		this.title = title;
 		this[TANTERVIHALO_MODULES] = [];
+		this[TANTERVIHALO_SUMS] = new CurriculumModule({tantervihalo: this, title: "Summaries"});
 	}
 
 	push(...args) {
@@ -146,15 +187,31 @@ export class Tantervihalo {
 	}
 
 	get modules() {
-		return this[TANTERVIHALO_MODULES].filter(module => !module.ignored);
+		return this[TANTERVIHALO_MODULES]
+			.filter(module => module !== this.sums)
+			.filter((module, i, {length}) => i !== length - 1 || module.initialized)
+			.filter(module => !module.ignored);
 	}
 
-	findSubject({code}) {
-		for (const subject of this) {
-			if (subject.code === code) return subject;
+	get sums() {
+		return this[TANTERVIHALO_SUMS];
+	}
+
+	findSubject({code, name}) {
+		for (const subject of this[TANTERVIHALO_MODULES]) {
+			if (code && subject.code === code) return subject;
+			if (name && subject.name === name) return subject;
 		}
 
 		return {code}; // fallback
+	}
+
+	toJSON() {
+		return {
+			title: this.title,
+			thesis: this.findSubject({name: "Szakdolgozati konzultáció"}),
+			subjects: [...this],
+		}
 	}
 }
 
@@ -173,9 +230,12 @@ export class CurriculumModule {
 	[MODULE_ELECTIVE];
 	[MODULE_IGNORED];
 
-	constructor({tantervihalo}) {
+	constructor({tantervihalo, title = undefined}) {
 		tantervihalo[TANTERVIHALO_MODULES].push(this);
 		this[MODULE_TANTERVIHALO] = tantervihalo;
+		if (title) {
+			this[MODULE_TITLE] = title;
+		}
 	}
 
 	get [MODULE_HINT]() {
@@ -235,43 +295,68 @@ export class CurriculumModule {
 	}
 
 	*[Symbol.iterator]() {
+		if (!this[MODULE_ROWS]) return;
 		for (const row of this[MODULE_ROWS]) {
-			yield new Subject({
-				module: this,
-				code: (row["Code"] || row["Kód"]),
-				name: (row["Courses"] || row["Tanegység"] || "").match(/(.*)[\s*]*/)[1],
-				requirements: (row["Subject requirement"] ?
-					row["Subject requirement"].split(/, ?/)
-					: (this.headers.includes("Előfeltétel 1") && this.headers.includes("Előfeltétel 1")) ?
-					[
-						...(row["Előfeltétel 1"] ? row["Előfeltétel 1"].split(/, | vagy /) : []),
-						...(row["Előfeltétel 2"] ? row["Előfeltétel 2"].split(/, | vagy /) : []),
-					]
-					: []).map(s => /[\wÀ-ú\d-]+/.exec(s)[0]),
-				credits: {
-					lecture: parseInt(row["Lecture (L)"] || row["Előadás"]),
-					labor: parseInt(row["Labor"]),
-					practice: parseInt(row["Practice (Pr)"] || row["Gyakorlat"]),
-					consultation: parseInt(row["Consultation" || row["Konzultáció"]]),
-					total: parseInt(row["Credit"] || row["Kredit"]),
-				},
-				assessmentType: {
-						"X": {
-							"": AssessmentTypes.combined,
-							"PG": AssessmentTypes.combinedPractice,
-							"Gy": AssessmentTypes.combinedPractice,
-							"CA": AssessmentTypes.combinedContinuous,
-						}[row["Practice Grade (PG)" || row["Gyak. jegy"]]],
-						"E": AssessmentTypes.exam,
-						"K": AssessmentTypes.exam,
-						"": {
-							"PG": AssessmentTypes.practice,
-							"Gy": AssessmentTypes.practice,
-							"": undefined,
-						}[row["Practice Grade (PG)" || row["Gyak. jegy"]]],
-					}[row["Exam (E)"] || row["Vizsga"]],
-				recommendedSemester: parseInt(row["Semester"] || row["Ajánlott félév"]),
-			});
+			try {
+				yield new Subject({
+					module: this,
+					code: str(row["Code"] || row["Kód"]),
+					name: str(row["Courses"] || row["Tanegység"] || "").match(/^(.*?)[\s*]*$/)[1],
+					discontinued: !!str(row["Courses"] || row["Tanegység"] || "").match(/[^*]\*\*\s*$/),
+					requirements: (row["Subject requirement"] ?
+						str(row["Subject requirement"]).split(/, ?/)
+						: (this.headers.includes("Előfeltétel 1") && this.headers.includes("Előfeltétel 1")) ?
+						[
+							...(row["Előfeltétel 1"] ? str(row["Előfeltétel 1"]).split(/, | vagy /) : []),
+							...(row["Előfeltétel 2"] ? str(row["Előfeltétel 2"]).split(/, | vagy /) : []),
+						]
+						: this.headers.includes("Előfeltétel(ek)") ?
+						(row["Előfeltétel(ek)"] ? str(row["Előfeltétel(ek)"]).split(/, *| *\/ */) : [])
+						: []).map(s => /[\wÀ-ú\d-]+/.exec(s)[0]),
+					credits: {
+						lecture: parseInt(str(row["Lecture (L)"] || row["Előadás"])),
+						labor: parseInt(str(row["Labor"])),
+						practice: parseInt(str(row["Practice (Pr)"] || row["Gyakorlat"])),
+						consultation: parseInt(str(row["Consultation"] || row["Konzultáció"])),
+						total: parseInt(str(row["Credit"] || row["Kredit"])),
+					},
+					assessment: this.headers.includes("Számonkérés")
+						? {
+							combined: str(row["Számonkérés"]).startsWith('X'),
+							grade: {
+								"G": GradeTypes.practice,
+								"K": GradeTypes.exam,
+								"FG": GradeTypes.continuousPractice,
+							}[str(row["Számonkérés"]).match(/X?(.*)/)[1]],
+						}
+						: {
+							"X": {
+								"": {combined: true, grade: GradeTypes.exam},
+								"PG": {combined: true, grade: GradeTypes.practice},
+								"Gy": {combined: true, grade: GradeTypes.practice},
+								"CA": {combined: true, grade: GradeTypes.continuousPractice},
+								"F": {combined: true, grade: GradeTypes.continuousPractice},
+							}[row["Practice Grade (PG)" || row["Gyak. jegy"]]],
+							"E": {combined: false, grade: GradeTypes.exam},
+							"K": {combined: false, grade: GradeTypes.exam},
+							"": {
+								"PG": {combined: false, grade: GradeTypes.practice},
+								"Gy": {combined: false, grade: GradeTypes.practice},
+								"F": {combined: false, grade: GradeTypes.continuousPractice},
+								"CA": {combined: false, grade: GradeTypes.continuousPractice},
+								"": undefined,
+							}[row["Practice Grade (PG)" || row["Gyak. jegy"]]],
+						}[row["Exam (E)"] || row["Vizsga"]],
+					recommendedSemester: parseInt(row["Semester"] || row["Ajánlott félév"]),
+					topic: this.headers.includes("Ismeretkör") && Topics[str(row["Ismeretkör"])
+						.normalize("NFD").replace(/\W/g, '').toLowerCase()] || undefined,
+					specializations: this.headers.includes("Specalizáció FTM") &&
+						new Set([...row["Specalizáció FTM"]].map(c => Specializations[c])) || undefined,
+				});
+			} catch (e) {
+				debugger
+				throw e;
+			}
 		}
 	}
 
@@ -286,7 +371,8 @@ export class CurriculumModule {
 				for (const i in this[MODULE_HEADERS]) {
 					row[this[MODULE_HEADERS][i]] = arg[i];
 				}
-				this[MODULE_ROWS].push(row);
+				if (!this[MODULE_ROWS]) debugger;
+				else this[MODULE_ROWS].push(row);
 			} else {
 				throw new Error("Unexpected type of arg");
 			}
@@ -302,26 +388,41 @@ export class CurriculumModule {
 }
 
 const SUBJECT_REQUIREMENTS = Symbol('requirements');
-const SUBJECT_MODULE = Symbol('module');
+// const SUBJECT_MODULE = Symbol('module');
+const SUBJECT_MODULE = 'module';
 export class Subject {
-	constructor({module, code, name, requirements: [...requirements], credits: {lecture, practice, labor, consultation, total: totalCredits}, assessmentType, recommendedSemester}) {
-		this[SUBJECT_MODULE] = module;
-		this.code = code;
-		this.name = name;
-		this[SUBJECT_REQUIREMENTS] = [...requirements];
-		this.credits = {
-			lecture,
-			practice,
-			labor,
-			consultation,
-			total: totalCredits,
-		};
-		this.assessmentType = assessmentType;
-		this.recommendedSemester = recommendedSemester;
+	// constructor({module, code, name, discontinued, requirements: [...requirements], credits: {lecture, practice, labor, consultation, total: totalCredits}, assessment: {combined, grade}, recommendedSemester, topic, specializations}) {
+	// 	this[SUBJECT_MODULE] = module;
+	// 	this.code = code;
+	// 	this.name = name;
+	// 	this[SUBJECT_REQUIREMENTS] = [...requirements];
+	// 	this.discontinued = discontinued;
+	// 	this.credits = {
+	// 		lecture,
+	// 		practice,
+	// 		labor,
+	// 		consultation,
+	// 		total: totalCredits,
+	// 	};
+	// 	this.assessment = {
+	// 		combined,
+	// 		grade,
+	// 	};
+	// 	this.recommendedSemester = recommendedSemester;
+	// 	this.topic = topic;
+	// 	this.specializations = specializations;
+	// }
+
+	constructor(data) {
+		Object.assign(this, data);
 	}
 
 	get elective() {
 		return this[SUBJECT_MODULE].elective;
+	}
+
+	set requirements(requirements) {
+		this[SUBJECT_REQUIREMENTS] = [...requirements];
 	}
 
 	get requirements() {
@@ -334,23 +435,25 @@ export class Subject {
 
 	toJSON() {
 		return {
+			...Object.getOwnPropertyNames(this).reduce((a, v) => ({...a, [v]: this[v]}), {}),
 			module: this[SUBJECT_MODULE].title,
-			code: this.code,
-			name: this.name,
 			requirements: this[SUBJECT_REQUIREMENTS],
-			credits: {
-				lecture: this.credits.lecture,
-				practice: this.credits.practice,
-				labor: this.credits.labor,
-				consultation: this.credits.consultation,
-				total: this.credits.total,
+			assessment: {
+				...this.assessment,
+				grade: this.assessment.grade && this.assessment.grade
+					.toString().match(/^Symbol\((.*)\)$/)[1]
+					.toLowerCase()
+					.replace(/_/g, ' ')
 			},
-			assessmentType: this.assessmentType && this.assessmentType
-				.toString().match(/^Symbol\((.*)\)$/)[1]
-				.toLowerCase()
-				.replace(/_/g, ' '),
-			recommendedSemester: this.recommendedSemester,
 			elective: this.elective,
 		}
 	}
+}
+
+function str(s) {
+	if (s === undefined) {
+		return s;
+	} else if (s.richText) {
+		return s.richText.map(t => t.text).join('')
+	} else return s.toString();
 }
