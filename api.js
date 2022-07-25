@@ -198,9 +198,11 @@ export class Tantervihalo {
 	}
 
 	findSubject({code, name}) {
-		for (const subject of this[TANTERVIHALO_MODULES]) {
-			if (code && subject.code === code) return subject;
-			if (name && subject.name === name) return subject;
+		for (const module of this[TANTERVIHALO_MODULES]) {
+			for (const subject of module) {
+				if (code && subject.code === code) return subject;
+				if (name && subject.name === name) return subject;
+			}
 		}
 
 		return {code}; // fallback
@@ -210,6 +212,11 @@ export class Tantervihalo {
 		return {
 			title: this.title,
 			thesis: this.findSubject({name: "Szakdolgozati konzultáció"}),
+			topics: {
+				['Informatics']: this.findSubject({name: "Kötelezően választandó tárgyak Informatika ismeretkör"}),
+				['Computation theory']: this.findSubject({name: "Kötelezően választandó tárgyak Számítástudomány ismeretkör"}),
+				other: this.findSubject({name: "Szabadon választható tárgyak ütemezése kreditértékkel"}),
+			},
 			subjects: [...this],
 		}
 	}
@@ -347,7 +354,9 @@ export class CurriculumModule {
 								"": undefined,
 							}[row["Practice Grade (PG)" || row["Gyak. jegy"]]],
 						}[row["Exam (E)"] || row["Vizsga"]],
-					recommendedSemester: parseInt(row["Semester"] || row["Ajánlott félév"]),
+					recommendedSemester: str(row["Semester"] || row["Ajánlott félév"])
+						.split(/[,.]\s*/g)
+						.map(s => parseInt(s)),
 					topic: this.headers.includes("Ismeretkör") && Topics[str(row["Ismeretkör"])
 						.normalize("NFD").replace(/\W/g, '').toLowerCase()] || undefined,
 					specializations: this.headers.includes("Specalizáció FTM") &&
@@ -437,7 +446,7 @@ export class Subject {
 		return {
 			...Object.getOwnPropertyNames(this).reduce((a, v) => ({...a, [v]: this[v]}), {}),
 			module: this[SUBJECT_MODULE].title,
-			requirements: this[SUBJECT_REQUIREMENTS],
+			requirements: this[SUBJECT_REQUIREMENTS].map(req => [req]),
 			assessment: {
 				...this.assessment,
 				grade: this.assessment.grade && this.assessment.grade
@@ -452,8 +461,16 @@ export class Subject {
 
 function str(s) {
 	if (s === undefined) {
-		return s;
-	} else if (s.richText) {
-		return s.richText.map(t => t.text).join('')
-	} else return s.toString();
+		return undefined;
+	}
+
+	if (s.richText) {
+		s = s.richText.map(t => t.text).join('');
+	}
+
+	s = s.toString();
+
+	s = s.trim();
+
+	return s;
 }
