@@ -1,4 +1,4 @@
-import {AssessmentTypes, CurriculumModule, Tantervihalo, Subject, TantervihaloLoader} from "./api.js";
+import {TantervihaloLoader} from "./api.js";
 
 async function fetchResponse(url) {
 	if (url.match(/^https?:\/\//)) {

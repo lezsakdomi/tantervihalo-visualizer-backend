@@ -6,60 +6,137 @@
 <script type="text/babel" data-type="module">
 	import {TantervihaloLoader} from './api.js';
 
-	const url = "../assets/PTI 2018 nappali BSc A,B,,C háló 2022 július.xlsx";
-	const bytes = await fetch(url).then(res => res.blob());
-	const loader = new TantervihaloLoader(bytes);
+	const root = ReactDOM.createRoot(document.body.appendChild(document.createElement('main')));
+    root.render(<XlsxVisual url="../assets/PTI 2018 nappali BSc A,B,,C háló 2022 július.xlsx"/>);
 
-	const tantervihalo = await new Promise(resolve => {
-		loader.addEventListener('tantervihaloFound',
-			({detail: {promise}}) => resolve(promise))
-	})
-
-	window.tantervihalo = tantervihalo;
-	console.log(tantervihalo);
-
-	const fields = [
-		'code',
-		'name',
-		'credits.lecture',
-	    'credits.practice',
-	    'credits.labor',
-	    'credits.consultation',
-	    'credits.total',
-		'assessmentType',
-		'recommendedSemester',
-		'elective',
-		'requirements',
-	].map(s => s.split(/\./g));
-	ReactDOM.createRoot(document.body.appendChild(document.createElement('main'))).render([
-		<h1 key="h1">{tantervihalo.title}</h1>,
-		...tantervihalo.modules.map((module, moduleIndex) => (
-			<table key={`${moduleIndex}:${module.title}`}>
-				<caption>{module.title}</caption>
-				<tbody>
-				<tr>{fields.map(a => <th key={a.join('.')}>{a.join('.')}</th>)}</tr>
-				{[...module].map(subject => (
-					<tr key={subject.code}>{fields.map(a => (
-						<td key={a.join('.')}>{show(a.reduce((o, f) => o[f], subject))}</td>
-                    ))}</tr>
-				))}
-				</tbody>
-			</table>
-		)),
-	]);
-
-	function show(data) {
-		if (data === undefined) return "";
-		else if (Array.isArray(data)) {
-			return data.map(show).join(", ");
-        } else {
-			return data.toString();
-        }
+	function render() {
+		root.render(<TantervihaloVisual tantervihalo={tantervihalo}/>)
     }
+
+	function XlsxVisual({url}) {
+		const [haloEvents, setHaloEvents] = React.useState([]);
+		const [loader, setLoader] = React.useState(undefined);
+
+		React.useEffect(() => {
+			setLoader(undefined);
+			setHaloEvents([]);
+			fetch(url)
+				.then(res => res.blob())
+				.then(bytes => {
+					const loader = new TantervihaloLoader(bytes);
+					setLoader(loader);
+
+					loader.addEventListener('tantervihaloFound', (event) => {
+                        haloEvents.push(event);
+						setHaloEvents([...haloEvents]);
+                    });
+				})
+		}, [url]);
+
+        if (loader) {
+			return haloEvents.map((event, i) => (
+				<TantervihaloVisual key={i} event={event}/>
+            ));
+        } else {
+			return "Please wait, fetching XLSX...";
+        }
+	}
+
+	function ModuleVisual({module}) {
+		const fields = [
+			'code',
+			'name',
+            'discontinued',
+			'credits.lecture',
+			'credits.practice',
+			'credits.labor',
+			'credits.consultation',
+			'credits.total',
+			'assessment.combined',
+			'assessment.grade',
+			'recommendedSemester',
+			'elective',
+			'requirements',
+            'topic',
+            'specializations',
+		].map(s => s.split(/\./g));
+
+		function show(data) {
+			if (data === undefined) {
+				return "";
+			} else if (typeof data === 'number' && isNaN(data)) {
+				return "";
+			} else if (typeof data === 'symbol') {
+				return <code>{data.toString().match(/^Symbol\((.*)\)$/)[1]}</code>;
+			} else if (data instanceof Set) {
+				return show([...data]);
+			} else if (Array.isArray(data)) {
+				const a = [];
+				for (let i = 0; i < data.length; i++) {
+					a.push(show(data[i]));
+					if (i < data.length - 1) {
+						a.push(", ");
+                    }
+                }
+				return a;
+			} else {
+				return data.toString();
+			}
+		}
+
+		return (
+			<details>
+                <summary>{module.title}</summary>
+                <table>
+                    <tbody>
+                    <tr>{fields.map(a => <th key={a.join('.')}>{a.join('.')}</th>)}</tr>
+                    {[...module].map(subject => (
+                        <tr key={subject.code}>{fields.map(a => (
+                            <td key={a.join('.')}>{show(a.reduce((o, f) => o[f], subject))}</td>
+                        ))}</tr>
+                    ))}
+                    </tbody>
+                </table>
+			</details>
+        );
+	}
+
+	function TantervihaloVisual({event}) {
+		const [{tantervihalo}, setTantervihalo] = React.useState(event.detail);
+
+		function updateTantervihalo() {
+			setTantervihalo({tantervihalo});
+		}
+
+		React.useEffect(() => {
+			const {eventTarget, promise} = event.detail;
+			eventTarget.addEventListener('moduleFound', moduleEvent => {
+				updateTantervihalo();
+				const {eventTarget} = moduleEvent.detail;
+				eventTarget.addEventListener('titleFound', updateTantervihalo)
+				eventTarget.addEventListener('subjectFound', updateTantervihalo)
+            })
+            eventTarget.addEventListener('sumRow', updateTantervihalo)
+            promise.then(updateTantervihalo)
+        }, [event.detail]);
+
+		return [
+			<h1 key="h1">{tantervihalo.title}</h1>,
+			...tantervihalo.modules.map((module, moduleIndex) => (
+				<ModuleVisual key={`${moduleIndex}:${module.title}`}
+                              module={module}/>
+            )),
+            <ModuleVisual key="sums" module={tantervihalo.sums}/>,
+			<details>
+				<summary>JSON</summary>
+				<pre>{JSON.stringify(tantervihalo)}</pre>
+			</details>,
+		];
+	}
 </script>
 
 <style>
-    table {
+    details {
         margin-top: 1em;
     }
 
