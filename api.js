@@ -27,12 +27,12 @@ export class TantervihaloLoader extends EventTarget {
 			this.dispatchEvent(new CustomEvent('tantervihaloFound', {
 				detail: {
 					tantervihalo,
-						eventTarget: tantervihaloEventTarget,
-						excelRow: ws.getRow(1),
-						promise: new Promise((resolve, reject) => {
-							tantervihaloResolve = resolve;
-							tantervihaloReject = reject;
-						}),
+					eventTarget: tantervihaloEventTarget,
+					excelRow: ws.getRow(1),
+					promise: new Promise((resolve, reject) => {
+						tantervihaloResolve = resolve;
+						tantervihaloReject = reject;
+					}),
 				}
 			}));
 
